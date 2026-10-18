@@ -9,9 +9,9 @@
     "scripting",
     "storage",
     "downloads",
-    "offscreen"
+    "offscreen",
+    "debugger"
   ],
-  "optional_permissions": ["debugger"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup/popup.html",
