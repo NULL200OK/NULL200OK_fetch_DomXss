@@ -29,6 +29,20 @@ npm install
 ```
 ---
 
+## ⚠️ Important Note About Permissions (Debugger)
+
+To provide the most advanced detection capabilities, **NULL200OK_fetch_DomXss** includes a feature called **Deep DOMPurify**. This feature uses the Chrome DevTools Protocol (CDP) to attach a debugger and inspect sanitizer configurations hidden inside complex JavaScript bundles (like Webpack).
+
+Because of this, the extension requests the `debugger` permission. 
+
+**What to expect during installation:**
+*   Chrome will show a warning message: *"Read and change all your data on all websites"* or *"Debugging this browser"*. 
+*   **Do not be alarmed.** This is standard for security tools that need to inspect page execution in real-time.
+*   The debugger is **only** attached to a specific tab when you explicitly click the **"Enable Deep DOMPurify"** button in the extension popup. 
+*   You can safely close the debugger at any time by clicking the yellow warning bar at the top of your browser.
+
+Since this tool is fully open-source, you are welcome to review the code in `lib/debugger-adapter.js` to see exactly how the debugger is used.
+
 ### 🛡️ Features :
 **Runtime DOM XSS — Detects flows into innerHTML, document.write, eval, setTimeout, and more.**
 
