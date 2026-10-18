@@ -8,7 +8,7 @@
     window.postMessage({ [BRIDGE]: true, ...msg }, "*");
   }
 
-  // 1. اعتراض URLSearchParams لاكتشاف قراءة الرابط (حل جذري لمشكلة Location)
+  // 1. اعتراض URLSearchParams
   const NativeURLSearchParams = window.URLSearchParams;
   window.URLSearchParams = function(init) {
     if (typeof init === "string" && init.length > 2) {
@@ -22,7 +22,7 @@
     return new NativeURLSearchParams(init);
   };
 
-  // 2. اعتراضات المصادر الأخرى (Hash, Referrer, Name)
+  // 2. اعتراض المصادر الأخرى
   function hookAccessor(owner, prop, type) {
     try {
       const d = Object.getOwnPropertyDescriptor(owner, prop);
@@ -51,12 +51,17 @@
   try { hookAccessor(Document.prototype, "URL", "document.URL"); } catch {}
   try { hookAccessor(Window.prototype, "name", "window.name"); } catch {}
 
-  // 3. اعتراض المصارف (Sinks)
+  // 3. اعتراض المصارف (مع إضافة location.search كدرع واقٍ)
   const EXPLOITABLE =
     /<\s*(script|iframe|svg|img|body|object|embed|math)\b|on\w+\s*=|javascript\s*:|data\s*:\s*text\/html/i;
 
   function reportSink(sink, value, element, extra = {}) {
     if (typeof value !== "string" || value.length < 3) return;
+    
+    // التقاط الرابط لتجاوز قيود المتصفح
+    let searchData = '';
+    try { searchData = location.search || ''; } catch(e) {}
+    
     send({
       type: "SINK_WRITE",
       sink: {
@@ -66,7 +71,7 @@
       },
       value: value.slice(0, 2000),
       exploitable: EXPLOITABLE.test(value),
-      extra,
+      extra: { ...extra, search: searchData }, // نرسل الرابط هنا
     });
   }
 
@@ -132,10 +137,7 @@
     },
   });
 
-  const srcdoc = Object.getOwnPropertyDescriptor(
-    HTMLIFrameElement.prototype,
-    "srcdoc"
-  );
+  const srcdoc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "srcdoc");
   if (srcdoc?.set) {
     Object.defineProperty(HTMLIFrameElement.prototype, "srcdoc", {
       configurable: true,
@@ -203,11 +205,7 @@
     }
   })();
 
-  const PROTOS = [
-    [Object.prototype, "Object"],
-    [Array.prototype, "Array"],
-    [Function.prototype, "Function"],
-  ];
+  const PROTOS = [[Object.prototype, "Object"], [Array.prototype, "Array"], [Function.prototype, "Function"]];
   const BASELINE = PROTOS.map(([p]) => new Set(Object.getOwnPropertyNames(p)));
   const POLLUTED = new Set();
 
@@ -247,11 +245,7 @@
   const origAssign = Object.assign;
   Object.assign = function (target, ...sources) {
     for (const s of sources) {
-      if (
-        s &&
-        typeof s === "object" &&
-        Object.prototype.hasOwnProperty.call(s, "__proto__")
-      ) {
+      if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "__proto__")) {
         send({
           type: "SINK_WRITE",
           sink: { type: "Object.assign(__proto__)", element: null, selector: null },
@@ -262,19 +256,4 @@
     }
     return origAssign.call(this, target, ...sources);
   };
-
-  (function ttBypass() {
-    const vectors = [];
-    if (window.XSLTProcessor) vectors.push("XSLTProcessor");
-    if (window.DOMParser) vectors.push("DOMParser");
-    if (vectors.length) {
-      send({
-        type: "SINK_WRITE",
-        sink: { type: "TT-bypass-vector", element: null, selector: null },
-        value: vectors.join(","),
-        exploitable: false,
-        extra: { vectors },
-      });
-    }
-  })();
 })();
