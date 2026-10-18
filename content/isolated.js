@@ -168,20 +168,6 @@
     }
   }
 
-  // ========================================================
-  // التعديل هنا: حقن فوري بدون انتظار DOMContentLoaded
-  // ========================================================
-  function injectPageScript() {
-    const s = document.createElement("script");
-    s.src = chrome.runtime.getURL("content/inject.js");
-    s.onload = () => s.remove();
-    (document.head || document.documentElement).appendChild(s);
-  }
-
-  // تنفيذ الحقن مباشرة
-  injectPageScript();
-  // ========================================================
-
   window.addEventListener(
     "load",
     () => setTimeout(runStaticAnalysis, 1500),
