@@ -168,6 +168,9 @@
     }
   }
 
+  // ========================================================
+  // التعديل هنا: حقن فوري بدون انتظار DOMContentLoaded
+  // ========================================================
   function injectPageScript() {
     const s = document.createElement("script");
     s.src = chrome.runtime.getURL("content/inject.js");
@@ -175,11 +178,9 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", injectPageScript, { once: true });
-  } else {
-    injectPageScript();
-  }
+  // تنفيذ الحقن مباشرة
+  injectPageScript();
+  // ========================================================
 
   window.addEventListener(
     "load",
