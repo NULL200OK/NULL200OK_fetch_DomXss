@@ -6,7 +6,8 @@ const TAINT_CAP = 1024;
 
 const TAINT_STORE = new Map();
 const FINDINGS = new Map();
-const SEEN = new WeakMap();
+// تم الإصلاح: استخدام Map بدلاً من WeakMap لدعم أرقام التبويبات
+const SEEN = new Map(); 
 const DEBUGGERS = new Map();
 
 function simpleHash(str) {
@@ -46,8 +47,8 @@ function resolveTaint(origin, value, extra = {}) {
   const b = TAINT_STORE.get(origin);
   const s = String(value);
   
-  // الخوارزمية الجديدة: فحص الرابط الملتقط مباشرة
-  if (extra.search) {
+  // الخوارزمية الذكية: فحص الرابط الملتقط مباشرة لتجاوز قيود المتصفح
+  if (extra && extra.search) {
     try {
       const params = new URLSearchParams(extra.search);
       for (const [key, val] of params.entries()) {
@@ -112,6 +113,7 @@ function pushFinding(tabId, finding) {
   }
   if (seen.has(finding.id)) return;
   seen.add(finding.id);
+  
   const list = FINDINGS.get(tabId) || [];
   list.push(finding);
   FINDINGS.set(tabId, list);
@@ -194,6 +196,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "CLEAR_FINDINGS") {
     FINDINGS.delete(msg.tabId);
+    SEEN.delete(msg.tabId);
     chrome.storage.local.remove(`n2ok_findings_${msg.tabId}`).catch(() => {});
     sendResponse({ ok: true });
     return true;
@@ -236,6 +239,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   FINDINGS.delete(tabId);
+  SEEN.delete(tabId);
   chrome.storage.local.remove(`n2ok_findings_${tabId}`).catch(() => {});
   const adapter = DEBUGGERS.get(tabId);
   if (adapter) {
