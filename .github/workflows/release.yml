@@ -16,8 +16,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install (produces dist/)
-        run: npm install
+      - name: Prepare assets
+        run: node scripts/prepare-assets.js
+
+      - name: Build dist
+        run: node scripts/build.js
+
+      - name: Verify dist
+        run: |
+          ls -la dist/
+          test -f dist/manifest.json || exit 1
 
       - name: Package
         run: |
