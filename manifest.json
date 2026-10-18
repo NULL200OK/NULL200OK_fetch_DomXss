@@ -30,6 +30,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "js": ["content/inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
       "js": ["content/isolated.js"],
       "run_at": "document_start",
       "world": "ISOLATED",
@@ -39,7 +46,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/inject.js",
         "lib/flow-graph.js",
         "vendor/acorn.js"
       ],
