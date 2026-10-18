@@ -43,14 +43,36 @@ async function recordTaint(origin, { sourceType, value, taintId }) {
   });
 }
 
+// الخوارزمية الذكية المحدثة
 async function resolveTaint(origin, value) {
   const b = TAINT_STORE.get(origin);
   if (!b) return null;
-  const hash = await sha256(value);
-  for (const rec of b.values()) if (rec.valueHash === hash) return rec;
+  
   const s = String(value);
-  for (const rec of b.values())
-    if (rec.preview && s.includes(rec.preview.slice(0, 64))) return rec;
+  const hash = await sha256(value);
+  
+  for (const rec of b.values()) if (rec.valueHash === hash) return rec;
+  
+  for (const rec of b.values()) {
+    if (!rec.preview) continue;
+    if (s.includes(rec.preview)) return rec;
+    
+    try {
+      const isQuery = rec.preview.startsWith('?');
+      const isHash = rec.preview.startsWith('#');
+      
+      if (isQuery || isHash) {
+        const content = rec.preview.substring(1);
+        const params = new URLSearchParams(isQuery ? rec.preview : `?${content}`);
+        
+        for (const [key, val] of params.entries()) {
+          if (val && val.length > 2 && s.includes(val)) return rec;
+        }
+        
+        if (isHash && content.length > 2 && s.includes(content)) return rec;
+      }
+    } catch (e) {}
+  }
   return null;
 }
 
