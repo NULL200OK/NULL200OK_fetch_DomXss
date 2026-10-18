@@ -8,6 +8,7 @@
     window.postMessage({ [BRIDGE]: true, ...msg }, "*");
   }
 
+  // دالة موحدة لتسجيل المصادر (Sources)
   function captureSource(type, val) {
     if (typeof val !== "string" || val.length < 3) return;
     send({
@@ -18,7 +19,11 @@
     });
   }
 
-  // 1. اعتراض المصادر (URL Sources)
+  // ==========================================
+  // 1. اعتراض المصادر (Sources)
+  // ==========================================
+  
+  // URL & Location
   const NativeURLSearchParams = window.URLSearchParams;
   window.URLSearchParams = function(init) {
     if (typeof init === "string") captureSource("location.search", init);
@@ -30,8 +35,7 @@
       const d = Object.getOwnPropertyDescriptor(owner, prop);
       if (!d?.get) return;
       Object.defineProperty(owner, prop, {
-        configurable: true,
-        enumerable: d.enumerable,
+        configurable: true, enumerable: d.enumerable,
         get() {
           const v = d.get.call(this);
           captureSource(type, v);
@@ -47,7 +51,7 @@
   try { hookAccessor(Document.prototype, "URL", "document.URL"); } catch {}
   try { hookAccessor(Window.prototype, "name", "window.name"); } catch {}
 
-  // 2. اعتراض المصادر المخزنة (Storage & Cookies)
+  // Storage & Cookies
   const origGetItem = Storage.prototype.getItem;
   Storage.prototype.getItem = function(key) {
     const val = origGetItem.call(this, key);
@@ -58,18 +62,20 @@
 
   try {
     const cookieDesc = Object.getOwnPropertyDescriptor(Document.prototype, "cookie");
-    Object.defineProperty(Document.prototype, "cookie", {
-      configurable: true,
-      get: function() {
-        const v = cookieDesc.get.call(this);
-        captureSource("document.cookie", v);
-        return v;
-      },
-      set: cookieDesc.set
-    });
+    if (cookieDesc) {
+      Object.defineProperty(Document.prototype, "cookie", {
+        configurable: true,
+        get: function() {
+          const v = cookieDesc.get.call(this);
+          captureSource("document.cookie", v);
+          return v;
+        },
+        set: cookieDesc.set
+      });
+    }
   } catch {}
 
-  // 3. اعتراض المصادر التاريخية والـ Base64
+  // History & Base64
   const origPushState = history.pushState;
   history.pushState = function(state, title, url) {
     if (state) captureSource("history.state", JSON.stringify(state));
@@ -83,31 +89,73 @@
     return decoded;
   };
 
-  // 4. اعتراض المصارف (Sinks)
+  // Network Requests (XHR & Fetch)
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function(body) {
+    if (typeof body === "string" && body.length > 3) {
+      captureSource("XHR_POST_BODY", body);
+    }
+    return origXHRSend.call(this, body);
+  };
+
+  const origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (init && init.body && typeof init.body === "string") {
+      captureSource("FETCH_POST_BODY", init.body);
+    }
+    return origFetch.apply(this, arguments);
+  };
+
+  // Advanced Sources (IndexedDB & BroadcastChannel)
+  if (window.indexedDB) {
+    const origOpen = indexedDB.open;
+    indexedDB.open = function(name, version) {
+      captureSource("IndexedDB.open", name);
+      return origOpen.call(this, name, version);
+    };
+  }
+  if (window.BroadcastChannel) {
+    const OrigBC = window.BroadcastChannel;
+    window.BroadcastChannel = function(name) {
+      captureSource("BroadcastChannel", name);
+      return new OrigBC(name);
+    };
+  }
+
+  // ==========================================
+  // 2. اعتراض المصارف (Sinks)
+  // ==========================================
+  
   const EXPLOITABLE = /<\s*(script|iframe|svg|img|body|object|embed|math)\b|on\w+\s*=|javascript\s*:|data\s*:\s*text\/html/i;
 
   function reportSink(sink, value, element, extra = {}) {
     if (typeof value !== "string" || value.length < 3) return;
+    
     let searchData = '';
     try { searchData = location.search || ''; } catch(e) {}
     
     send({
       type: "SINK_WRITE",
-      sink: { type: sink, element: element?.tagName?.toLowerCase?.() || null, selector: null },
+      sink: {
+        type: sink,
+        element: element?.tagName?.toLowerCase?.() || null,
+        selector: null,
+      },
       value: value.slice(0, 2000),
       exploitable: EXPLOITABLE.test(value),
-      extra: { ...extra, search: searchData },
+      extra: { ...extra, search: searchData }, // حل مشكلة PortSwigger
     });
   }
 
+  // DOM Sinks
   const ih = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
-  Object.defineProperty(Element.prototype, "innerHTML", {
+  if (ih) Object.defineProperty(Element.prototype, "innerHTML", {
     configurable: true, enumerable: ih.enumerable, get: ih.get,
     set(v) { reportSink("innerHTML", v, this); return ih.set.call(this, v); },
   });
 
   const oh = Object.getOwnPropertyDescriptor(Element.prototype, "outerHTML");
-  Object.defineProperty(Element.prototype, "outerHTML", {
+  if (oh) Object.defineProperty(Element.prototype, "outerHTML", {
     configurable: true, enumerable: oh.enumerable, get: oh.get,
     set(v) { reportSink("outerHTML", v, this); return oh.set.call(this, v); },
   });
@@ -118,10 +166,9 @@
     return iah.call(this, pos, v);
   };
 
-  // إضافة اعتراض setAttribute (لاكتشاف onclick و onmouseover)
   const origSetAttribute = Element.prototype.setAttribute;
   Element.prototype.setAttribute = function(name, value) {
-    if (name.toLowerCase().startsWith("on") || name.toLowerCase() === "href" || name.toLowerCase() === "src") {
+    if (name.toLowerCase().startsWith("on") || ["href", "src", "formaction"].includes(name.toLowerCase())) {
       reportSink("setAttribute", value, this, { attribute: name });
     }
     return origSetAttribute.call(this, name, value);
@@ -139,6 +186,7 @@
     return dwl.apply(this, a);
   };
 
+  // Execution Sinks
   const nativeEval = window.eval;
   window.eval = function (c) {
     if (typeof c === "string") reportSink("eval", c, null);
@@ -170,6 +218,7 @@
     });
   }
 
+  // Navigation Sinks
   for (const m of ["assign", "replace"]) {
     const orig = Location.prototype[m];
     Location.prototype[m] = function (u) {
@@ -178,24 +227,67 @@
     };
   }
 
-  // 5. اعتراض طلبات POST (XHR & Fetch)
-  const origXHRSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.send = function(body) {
-    if (typeof body === "string" && body.length > 3) {
-      captureSource("XHR_POST_BODY", body);
+  // ==========================================
+  // 3. Advanced Sinks (Level 5)
+  // ==========================================
+  
+  try {
+    const domainDesc = Object.getOwnPropertyDescriptor(Document.prototype, "domain");
+    if (domainDesc) {
+      Object.defineProperty(Document.prototype, "domain", {
+        configurable: true, get: domainDesc.get,
+        set: function(v) {
+          reportSink("document.domain", v, null);
+          return domainDesc.set.call(this, v);
+        }
+      });
     }
-    return origXHRSend.call(this, body);
+  } catch {}
+
+  if (window.DOMParser) {
+    const origParseFromString = DOMParser.prototype.parseFromString;
+    DOMParser.prototype.parseFromString = function(str, type) {
+      if (typeof str === "string" && str.length > 5) reportSink("DOMParser", str, null);
+      return origParseFromString.call(this, str, type);
+    };
+  }
+
+  if (window.XSLTProcessor) {
+    const origTransform = XSLTProcessor.prototype.transformToFragment;
+    XSLTProcessor.prototype.transformToFragment = function(source, owner) {
+      reportSink("XSLTProcessor", "XSLT Transformation executed", null);
+      return origTransform.call(this, source, owner);
+    };
+  }
+
+  const OrigWebSocket = window.WebSocket;
+  if (OrigWebSocket) {
+    window.WebSocket = function(url, protocols) {
+      if (typeof url === "string") reportSink("WebSocket", url, null);
+      return new OrigWebSocket(url, protocols);
+    };
+    window.WebSocket.prototype = OrigWebSocket.prototype;
+  }
+
+  if (document.evaluate) {
+    const origEvaluate = document.evaluate;
+    document.evaluate = function(xpath, contextNode, nsResolver, resultType, result) {
+      if (typeof xpath === "string" && xpath.length > 3) reportSink("document.evaluate", xpath, null);
+      return origEvaluate.call(this, xpath, contextNode, nsResolver, resultType, result);
+    };
+  }
+
+  const origSetProperty = CSSStyleDeclaration.prototype.setProperty;
+  CSSStyleDeclaration.prototype.setProperty = function(prop, value, priority) {
+    if (typeof value === "string" && (value.includes("url(") || value.includes("expression("))) {
+      reportSink("CSS.style.setProperty", value, null);
+    }
+    return origSetProperty.call(this, prop, value, priority);
   };
 
-  const origFetch = window.fetch;
-  window.fetch = function(input, init) {
-    if (init && init.body && typeof init.body === "string") {
-      captureSource("FETCH_POST_BODY", init.body);
-    }
-    return origFetch.apply(this, arguments);
-  };
-
-  // 6. كشف DOMPurify و Prototype Pollution
+  // ==========================================
+  // 4. DOMPurify Hook & Prototype Pollution
+  // ==========================================
   (function hookDOMPurify() {
     let _dp = null;
     try { _dp = window.DOMPurify; } catch {}
