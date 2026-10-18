@@ -69,17 +69,14 @@ document.getElementById("export-sarif").addEventListener("click", async () => {
   );
 });
 
+// تم التعديل هنا: لم يعد يطلب صلاحية، بل ينفذ الأمر مباشرة
 document.getElementById("enable-debugger").addEventListener("click", async () => {
-  const granted = await chrome.permissions.request({ permissions: ["debugger"] });
-  if (!granted) {
-    alert("Debugger permission denied.");
-    return;
-  }
   const t = await activeTab();
   if (!t?.id) return;
+  
   chrome.runtime
     .sendMessage({ type: "ENABLE_DEBUGGER", tabId: t.id })
-    .then(() => alert("Deep DOMPurify instrumentation enabled for this tab."))
+    .then(() => alert("Deep DOMPurify instrumentation enabled for this tab.\n\nNote: Chrome may show a yellow warning bar at the top. This is expected and required for deep inspection."))
     .catch(() => alert("Failed to enable debugger."));
 });
 
