@@ -50,27 +50,30 @@ function resolveTaint(origin, value) {
   const s = String(value);
   const hash = simpleHash(value);
   
-  // 1. تطابق تام
   for (const rec of b.values()) if (rec.valueHash === hash) return rec;
   
-  // 2. تطابق جزئي أو ذكي
   for (const rec of b.values()) {
     if (!rec.preview) continue;
     if (s.includes(rec.preview)) return rec;
     
     try {
-      const isQuery = rec.preview.startsWith('?');
-      const isHash = rec.preview.startsWith('#');
-      
-      if (isQuery || isHash) {
-        const content = rec.preview.substring(1);
-        const params = new URLSearchParams(isQuery ? rec.preview : `?${content}`);
+      let qs = rec.preview;
+      if (qs.includes('?')) {
+        qs = '?' + qs.split('?')[1];
+      }
+      if (qs.startsWith('?') || qs.startsWith('#')) {
+        const content = qs.substring(1);
+        const params = new URLSearchParams(qs.startsWith('?') ? qs : `?${content}`);
         
         for (const [key, val] of params.entries()) {
-          if (val && val.length > 2 && s.includes(val)) return rec;
+          if (val && val.length > 1 && s.includes(decodeURIComponent(val))) {
+            return rec;
+          }
+          if (val && val.length > 1 && s.includes(val)) {
+            return rec;
+          }
         }
-        
-        if (isHash && content.length > 2 && s.includes(content)) return rec;
+        if (qs.startsWith('#') && content.length > 1 && s.includes(content)) return rec;
       }
     } catch (e) {}
   }
@@ -119,7 +122,7 @@ function computeCVSS(finding) {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
-  const origin = sender.origin || sender.tab?.url || "unknown";
+  const origin = sender.origin || (sender.tab?.url ? new URL(sender.tab.url).origin : "unknown");
 
   if (msg.type === "SOURCE_READ") {
     recordTaint(origin, msg);
