@@ -8,6 +8,21 @@
     window.postMessage({ [BRIDGE]: true, ...msg }, "*");
   }
 
+  // 1. اعتراض URLSearchParams لاكتشاف قراءة الرابط (حل جذري لمشكلة Location)
+  const NativeURLSearchParams = window.URLSearchParams;
+  window.URLSearchParams = function(init) {
+    if (typeof init === "string" && init.length > 2) {
+      send({
+        type: "SOURCE_READ",
+        sourceType: "location.search",
+        value: init.slice(0, 2000),
+        taintId: `t-${Date.now()}-${++seq}`,
+      });
+    }
+    return new NativeURLSearchParams(init);
+  };
+
+  // 2. اعتراضات المصادر الأخرى (Hash, Referrer, Name)
   function hookAccessor(owner, prop, type) {
     try {
       const d = Object.getOwnPropertyDescriptor(owner, prop);
@@ -31,15 +46,12 @@
       });
     } catch {}
   }
-  hookAccessor(Location.prototype, "hash", "location.hash");
-  hookAccessor(Location.prototype, "search", "location.search");
-  hookAccessor(Location.prototype, "href", "location.href");
-  hookAccessor(Document.prototype, "referrer", "document.referrer");
-  hookAccessor(Document.prototype, "URL", "document.URL");
-  try {
-    hookAccessor(Window.prototype, "name", "window.name");
-  } catch {}
+  try { hookAccessor(Location.prototype, "hash", "location.hash"); } catch {}
+  try { hookAccessor(Document.prototype, "referrer", "document.referrer"); } catch {}
+  try { hookAccessor(Document.prototype, "URL", "document.URL"); } catch {}
+  try { hookAccessor(Window.prototype, "name", "window.name"); } catch {}
 
+  // 3. اعتراض المصارف (Sinks)
   const EXPLOITABLE =
     /<\s*(script|iframe|svg|img|body|object|embed|math)\b|on\w+\s*=|javascript\s*:|data\s*:\s*text\/html/i;
 
@@ -144,18 +156,13 @@
     };
   }
 
-  // DOMPurify window hook
   (function hookDOMPurify() {
     let _dp = null;
-    try {
-      _dp = window.DOMPurify;
-    } catch {}
+    try { _dp = window.DOMPurify; } catch {}
     try {
       Object.defineProperty(window, "DOMPurify", {
         configurable: true,
-        get() {
-          return _dp;
-        },
+        get() { return _dp; },
         set(v) {
           _dp = v;
           if (v && typeof v.sanitize === "function") hookInstance(v);
@@ -166,9 +173,7 @@
 
     function hookInstance(dp) {
       if (dp.__n2okHooked) return;
-      try {
-        dp.__n2okHooked = true;
-      } catch {}
+      try { dp.__n2okHooked = true; } catch {}
       const orig = dp.sanitize.bind(dp);
       dp.sanitize = function (dirty, config) {
         const issues = inspectConfig(config);
@@ -198,7 +203,6 @@
     }
   })();
 
-  // Prototype pollution
   const PROTOS = [
     [Object.prototype, "Object"],
     [Array.prototype, "Array"],
@@ -259,7 +263,6 @@
     return origAssign.call(this, target, ...sources);
   };
 
-  // Trusted Types bypass vectors
   (function ttBypass() {
     const vectors = [];
     if (window.XSLTProcessor) vectors.push("XSLTProcessor");
