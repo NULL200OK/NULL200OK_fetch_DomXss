@@ -9,14 +9,13 @@ const FINDINGS = new Map();
 const SEEN = new WeakMap();
 const DEBUGGERS = new Map();
 
-async function sha256(str) {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(String(str))
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+// دالة هاش سريعة جداً ومتزامنة لتفادي مشكلة تأخر الاستجابة
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return h.toString(16);
 }
 
 function bucket(origin) {
@@ -28,31 +27,33 @@ function bucket(origin) {
   return b;
 }
 
-async function recordTaint(origin, { sourceType, value, taintId }) {
+function recordTaint(origin, { sourceType, value, taintId }) {
   const b = bucket(origin);
   const now = Date.now();
   for (const [id, rec] of b) if (now - rec.createdAt > TAINT_TTL_MS) b.delete(id);
   while (b.size > TAINT_CAP) b.delete(b.keys().next().value);
+  
   b.set(taintId, {
     id: taintId,
     source: sourceType,
-    valueHash: await sha256(value),
+    valueHash: simpleHash(value),
     preview: String(value).slice(0, 200),
     createdAt: now,
     children: [],
   });
 }
 
-// الخوارزمية الذكية المحدثة
-async function resolveTaint(origin, value) {
+function resolveTaint(origin, value) {
   const b = TAINT_STORE.get(origin);
   if (!b) return null;
   
   const s = String(value);
-  const hash = await sha256(value);
+  const hash = simpleHash(value);
   
+  // 1. تطابق تام
   for (const rec of b.values()) if (rec.valueHash === hash) return rec;
   
+  // 2. تطابق جزئي أو ذكي
   for (const rec of b.values()) {
     if (!rec.preview) continue;
     if (s.includes(rec.preview)) return rec;
@@ -121,53 +122,48 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const origin = sender.origin || sender.tab?.url || "unknown";
 
   if (msg.type === "SOURCE_READ") {
-    (async () => {
-      await recordTaint(origin, msg);
-      sendResponse({ ok: true });
-    })();
+    recordTaint(origin, msg);
+    sendResponse({ ok: true });
     return true;
   }
 
   if (msg.type === "PROPAGATE") {
-    (async () => {
-      const b = bucket(origin);
-      if (!b.has(msg.parentTaintId)) return sendResponse({ taintId: null });
-      const childId = crypto.randomUUID();
-      const parent = b.get(msg.parentTaintId);
-      parent.children.push(childId);
-      b.set(childId, {
-        id: childId,
-        source: parent.source,
-        valueHash: await sha256(msg.value),
-        preview: String(msg.value).slice(0, 200),
-        createdAt: Date.now(),
-        operation: msg.operation,
-        parent: msg.parentTaintId,
-        children: [],
-      });
-      sendResponse({ taintId: childId });
-    })();
+    const b = bucket(origin);
+    if (!b.has(msg.parentTaintId)) return sendResponse({ taintId: null });
+    const childId = crypto.randomUUID();
+    const parent = b.get(msg.parentTaintId);
+    parent.children.push(childId);
+    b.set(childId, {
+      id: childId,
+      source: parent.source,
+      valueHash: simpleHash(msg.value),
+      preview: String(msg.value).slice(0, 200),
+      createdAt: Date.now(),
+      operation: msg.operation,
+      parent: msg.parentTaintId,
+      children: [],
+    });
+    sendResponse({ taintId: childId });
     return true;
   }
 
   if (msg.type === "SINK_WRITE") {
-    (async () => {
-      const taint = await resolveTaint(origin, msg.value);
-      if (!taint) return sendResponse({ finding: null });
-      const finding = {
-        id: crypto.randomUUID(),
-        severity: msg.severity || (msg.exploitable ? "high" : "medium"),
-        sink: msg.sink,
-        sources: [{ type: taint.source, value: taint.preview, confidence: "sw-taint" }],
-        evidence: String(msg.value).slice(0, 500),
-        taintChain: buildChain(origin, taint.id),
-        cvss: computeCVSS({ sink: msg.sink, severity: msg.severity || "high", env: msg.env }),
-        timestamp: new Date().toISOString(),
-        env: msg.env || {},
-      };
-      pushFinding(sender.tab.id, finding);
-      sendResponse({ finding });
-    })();
+    const taint = resolveTaint(origin, msg.value);
+    if (!taint) return sendResponse({ finding: null });
+    
+    const finding = {
+      id: crypto.randomUUID(),
+      severity: msg.severity || (msg.exploitable ? "high" : "medium"),
+      sink: msg.sink,
+      sources: [{ type: taint.source, value: taint.preview, confidence: "sw-taint" }],
+      evidence: String(msg.value).slice(0, 500),
+      taintChain: buildChain(origin, taint.id),
+      cvss: computeCVSS({ sink: msg.sink, severity: msg.severity || "high", env: msg.env }),
+      timestamp: new Date().toISOString(),
+      env: msg.env || {},
+    };
+    pushFinding(sender.tab.id, finding);
+    sendResponse({ finding });
     return true;
   }
 
