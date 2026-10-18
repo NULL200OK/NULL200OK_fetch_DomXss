@@ -21,9 +21,7 @@
           renderOverlay();
         }
       }).catch(() => {});
-    } catch (e) {
-      // تجاهل الخطأ بصمت في حال كانت الإضافة قد حدثت
-    }
+    } catch (e) {}
   });
 
   function runStaticAnalysis() {
