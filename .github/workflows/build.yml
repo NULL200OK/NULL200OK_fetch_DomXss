@@ -21,10 +21,21 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install (triggers prepare: assets + dist build)
-        run: npm install
+      # 1) جلب Acorn + توليد الأيقونات صراحةً (بدون prepare)
+      - name: Prepare assets (Acorn + icons)
+        run: node scripts/prepare-assets.js
 
-      - name: Verify extension name
+      # 2) بناء dist/ صراحةً
+      - name: Build dist
+        run: node scripts/build.js
+
+      # 3) تحقق من أن dist/ موجود فعلاً
+      - name: Verify dist exists
+        run: |
+          ls -la dist/
+          test -f dist/manifest.json || (echo "dist/manifest.json missing"; exit 1)
+
+      - name: Verify extension name and version
         run: |
           node -e "
             const m = require('./dist/manifest.json');
@@ -75,8 +86,12 @@ jobs:
       - name: Install Xvfb + zip
         run: sudo apt-get update && sudo apt-get install -y xvfb zip
 
-      - name: Install root (produces dist/)
-        run: npm install
+      # نفس الخطوات الصريحة هنا أيضاً
+      - name: Prepare assets
+        run: node scripts/prepare-assets.js
+
+      - name: Build dist
+        run: node scripts/build.js
 
       - name: Install test deps
         working-directory: tests
