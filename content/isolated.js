@@ -12,16 +12,19 @@
     if (!event.data || event.data[BRIDGE] !== true) return;
     const msg = event.data;
     delete msg[BRIDGE];
-    chrome.runtime
-      .sendMessage(msg)
-      .then((res) => {
+    
+    // حماية ضد خطأ Extension context invalidated
+    try {
+      chrome.runtime.sendMessage(msg).then((res) => {
         if (res?.finding && !SEEN_IDS.has(res.finding.id)) {
           SEEN_IDS.add(res.finding.id);
           FINDINGS.push(res.finding);
           renderOverlay();
         }
-      })
-      .catch(() => {});
+      }).catch(() => {});
+    } catch (e) {
+      // يتم تجاهل الخطأ بهدوء إذا كانت الصفحة قديمة وتحتاج تحديث
+    }
   });
 
   function runStaticAnalysis() {
@@ -57,7 +60,9 @@
           }
         }
         if (out.length) {
-          chrome.runtime.sendMessage({ type: "STATIC_ANALYSIS_RESULT", findings: out });
+          try {
+            chrome.runtime.sendMessage({ type: "STATIC_ANALYSIS_RESULT", findings: out }).catch(()=>{});
+          } catch(e) {}
         }
       } catch {}
     })();
