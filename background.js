@@ -9,7 +9,6 @@ const FINDINGS = new Map();
 const SEEN = new WeakMap();
 const DEBUGGERS = new Map();
 
-// دالة هاش سريعة جداً ومتزامنة لتفادي مشكلة تأخر الاستجابة
 function simpleHash(str) {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -43,11 +42,30 @@ function recordTaint(origin, { sourceType, value, taintId }) {
   });
 }
 
-function resolveTaint(origin, value) {
+function resolveTaint(origin, value, extra = {}) {
   const b = TAINT_STORE.get(origin);
-  if (!b) return null;
-  
   const s = String(value);
+  
+  // الخوارزمية الجديدة: فحص الرابط الملتقط مباشرة
+  if (extra.search) {
+    try {
+      const params = new URLSearchParams(extra.search);
+      for (const [key, val] of params.entries()) {
+        if (val && val.length > 1 && s.includes(val)) {
+          return {
+            id: 'dynamic-fallback',
+            source: 'location.search',
+            preview: extra.search.slice(0, 200),
+            valueHash: simpleHash(extra.search),
+            createdAt: Date.now(),
+            children: [],
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!b) return null;
   const hash = simpleHash(value);
   
   for (const rec of b.values()) if (rec.valueHash === hash) return rec;
@@ -58,20 +76,13 @@ function resolveTaint(origin, value) {
     
     try {
       let qs = rec.preview;
-      if (qs.includes('?')) {
-        qs = '?' + qs.split('?')[1];
-      }
+      if (qs.includes('?')) qs = '?' + qs.split('?')[1];
       if (qs.startsWith('?') || qs.startsWith('#')) {
         const content = qs.substring(1);
         const params = new URLSearchParams(qs.startsWith('?') ? qs : `?${content}`);
-        
         for (const [key, val] of params.entries()) {
-          if (val && val.length > 1 && s.includes(decodeURIComponent(val))) {
-            return rec;
-          }
-          if (val && val.length > 1 && s.includes(val)) {
-            return rec;
-          }
+          if (val && val.length > 1 && s.includes(decodeURIComponent(val))) return rec;
+          if (val && val.length > 1 && s.includes(val)) return rec;
         }
         if (qs.startsWith('#') && content.length > 1 && s.includes(content)) return rec;
       }
@@ -151,7 +162,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "SINK_WRITE") {
-    const taint = resolveTaint(origin, msg.value);
+    const taint = resolveTaint(origin, msg.value, msg.extra);
     if (!taint) return sendResponse({ finding: null });
     
     const finding = {
