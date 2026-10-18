@@ -13,7 +13,6 @@
     const msg = event.data;
     delete msg[BRIDGE];
     
-    // حماية ضد خطأ Extension context invalidated
     try {
       chrome.runtime.sendMessage(msg).then((res) => {
         if (res?.finding && !SEEN_IDS.has(res.finding.id)) {
@@ -23,7 +22,7 @@
         }
       }).catch(() => {});
     } catch (e) {
-      // يتم تجاهل الخطأ بهدوء إذا كانت الصفحة قديمة وتحتاج تحديث
+      // تجاهل الخطأ بصمت في حال كانت الإضافة قد حدثت
     }
   });
 
