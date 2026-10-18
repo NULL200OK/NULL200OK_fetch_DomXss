@@ -1,0 +1,12 @@
+{
+  "name": "null200ok-fetch-domxss",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Runtime DOM XSS, Trusted Types, DOMPurify & prototype pollution detection.",
+  "scripts": {
+    "prepare": "node scripts/prepare-assets.js && node scripts/build.js",
+    "assets": "node scripts/prepare-assets.js",
+    "build": "node scripts/build.js"
+  },
+  "engines": { "node": ">=18" }
+}

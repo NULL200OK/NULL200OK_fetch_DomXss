@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 340px; margin: 0; padding: 14px; background:#0d1117; color:#c9d1d9; font:13px system-ui,sans-serif; }
+  h1 { font-size:14px; margin:0 0 4px; color:#58a6ff; }
+  .sub { color:#8b949e; font-size:11px; margin-bottom:10px; }
+  .stat { background:#161b22; padding:8px 10px; border-radius:6px; margin-bottom:10px; border:1px solid #30363d; }
+  .stat b { color:#58a6ff; }
+  button { width:100%; padding:9px; margin-top:6px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+  .primary { background:#1f6feb; color:#fff; }
+  .secondary { background:#21262d; color:#c9d1d9; }
+  .tertiary { background:#238636; color:#fff; }
+  .warning { background:#bb8009; color:#fff; }
+</style>
+</head>
+<body>
+  <h1>NULL200OK_fetch_DomXss</h1>
+  <div class="sub">Runtime DOM XSS · TT · PP · v4.0.0</div>
+  <div class="stat">
+    Findings: <b id="count">0</b> ·
+    TT: <b id="tt">?</b> ·
+    CSP: <b id="csp">?</b>
+  </div>
+  <button id="toggle" class="secondary">Toggle Overlay</button>
+  <button id="export-json" class="primary">Export JSON</button>
+  <button id="export-sarif" class="tertiary">Export SARIF 2.1.0</button>
+  <button id="enable-debugger" class="warning">Enable Deep DOMPurify (Debugger)</button>
+  <script src="popup.js"></script>
+</body>
+</html>

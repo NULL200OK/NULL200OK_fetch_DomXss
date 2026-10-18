@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { margin:0; background:#0d1117; color:#c9d1d9; font:12px ui-monospace,monospace; }
+  header { padding:8px 12px; background:#161b22; border-bottom:1px solid #30363d; display:flex; gap:12px; align-items:center; }
+  header h2 { margin:0; font-size:13px; color:#58a6ff; }
+  .badge { background:#1f6feb; padding:2px 8px; border-radius:10px; font-size:11px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:6px 8px; text-align:left; border-bottom:1px solid #21262d; vertical-align:top; }
+  th { background:#161b22; position:sticky; top:0; color:#8b949e; font-weight:600; }
+  tr:hover td { background:#161b22; }
+  .sev-high { color:#f85149; font-weight:700; }
+  .sev-medium { color:#d29922; font-weight:700; }
+  .sev-low { color:#58a6ff; font-weight:700; }
+  .ev { color:#c9d1d9; word-break:break-all; max-width:400px; }
+  .src { color:#8b949e; font-size:11px; }
+  button { background:#1f6feb; color:#fff; border:none; padding:2px 8px; border-radius:4px; cursor:pointer; font-size:11px; }
+  #empty { padding:24px; text-align:center; color:#8b949e; }
+</style></head>
+<body>
+  <header>
+    <h2>NULL200OK_fetch_DomXss</h2>
+    <span class="badge" id="count">0</span>
+    <button id="clear" style="margin-left:auto;">Clear</button>
+  </header>
+  <div id="empty">Waiting for findings… Navigate the page or interact with it.</div>
+  <table id="tbl" style="display:none;">
+    <thead><tr><th>Sev</th><th>Sink</th><th>Sources</th><th>Evidence</th><th>Time</th><th></th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <script src="panel.js"></script>
+</body></html>
