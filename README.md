@@ -73,6 +73,48 @@ Since this tool is fully open-source, you are welcome to review the code in `lib
 
 ---
 
+### 🛡️ Comprehensive Features & Coverage :
+
+**1. Ultimate Sink Coverage (Runtime DOM XSS):**
+
+HTML Injection: innerHTML, outerHTML, insertAdjacentHTML, document.write, document.writeln, srcdoc.
+
+Execution: eval, Function, setTimeout(string), setInterval(string).
+
+Advanced Vectors: setAttribute (catches onclick, href, src), document.domain, WebSocket, DOMParser, XSLTProcessor, CSS setProperty (Style Injection), document.evaluate (XPath).
+
+Navigation: location.assign, location.replace.
+
+**2. Ultimate Source Coverage:**
+
+URL & Navigation: location.search, location.hash, location.href, document.referrer, document.URL, window.name, history.state.
+
+Storage & Network: localStorage, sessionStorage, document.cookie, IndexedDB, XHR_POST_BODY, FETCH_POST_BODY, BroadcastChannel.
+
+Encoding: Automatically decodes and tracks Base64 strings via atob().
+
+**3. Advanced Engine (Service Worker):**
+
+Taint Tracking: Traces indirect flows (e.g., const x = location.hash; el.innerHTML = x.slice(1)).
+
+Static Analysis: Uses Acorn to build CFG (Control Flow Graph) and PDG (Program Dependence Graph) to find vulnerabilities before they execute.
+
+Smart Matching: Bypasses browser security restrictions on location by correlating URL data with sink writes dynamically.
+
+**4. Specialized Detectors:**
+
+DOMPurify Awareness: Detects dangerous sanitizer configurations (e.g., ADD_ATTR(fn), USE_PROFILES).
+
+Deep Instrumentation: Optional CDP debugger mode to catch bundled DOMPurify instances inside Webpack.
+
+Prototype Pollution: Detects __proto__ injections via JSON.parse and Object.assign.
+
+**5. Export & Reporting:**
+
+Export findings to JSON or SARIF 2.1.0 (works perfectly with GitHub Code Scanning, Azure DevOps, and VS Code SARIF Viewer).
+
+---
+
 ### 👨‍💻 Author :
 **NULL2000K — Built for authorized penetration testing and DOM XSS research only.**
 
