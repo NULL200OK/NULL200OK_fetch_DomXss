@@ -61,15 +61,15 @@ Since this tool is fully open-source, you are welcome to review the code in `lib
 ---
 
 ### 📖 How to Use :
-**Browse any website. The extension runs automatically.**
+**Browse normally. The extension runs automatically on every page.**
 
-**To test it, navigate to a page and append a payload to the URL hash, e.g., #<img src=x onerror=alert(1)>.**
+**Trigger a payload. Navigate to a page and append a payload to the URL, e.g., ?search=<img src=x onerror=alert(1)> or #<svg onload=alert(1)>.**
 
-**If a vulnerability is detected, a draggable overlay will appear in the top-right corner.**
+**Inspect findings. If a vulnerability is detected, a draggable overlay will appear in the top-right corner showing the severity and the taint chain.**
 
-**Open the Developer Tools (F12) and go to the NULL2000K DomXss tab for a detailed table of findings**.
+**Open DevTools. Press F12 and go to the NULL200OK DomXss tab for a detailed table of findings.**
 
-**Click the extension icon in the toolbar to Export JSON, Export SARIF, or enable Deep DOMPurify.**
+**Export. Click the extension icon in the toolbar to Export JSON, Export SARIF, or enable Deep DOMPurify.**
 
 ---
 
