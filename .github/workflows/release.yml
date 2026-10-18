@@ -1,0 +1,46 @@
+name: Release NULL200OK_fetch_DomXss
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install (produces dist/)
+        run: npm install
+
+      - name: Package
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          cd dist && zip -r "../NULL200OK_fetch_DomXss-${VERSION}.zip" . && cd ..
+          ls -la NULL200OK_fetch_DomXss-*.zip
+
+      - name: Extract version
+        id: ver
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "NULL200OK_fetch_DomXss v${{ steps.ver.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## NULL200OK_fetch_DomXss v${{ steps.ver.outputs.version }}
+
+            - Service Worker-based taint tracking (tamper-resistant)
+            - CFG + PDG static analysis via Acorn
+            - Debugger-instrumented DOMPurify detection (CDP)
+            - CVSS 3.1 severity scoring
+            - SARIF 2.1.0 export
+          files: |
+            NULL200OK_fetch_DomXss-${{ steps.ver.outputs.version }}.zip
