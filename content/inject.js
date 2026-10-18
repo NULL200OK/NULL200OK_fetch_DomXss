@@ -8,7 +8,6 @@
     window.postMessage({ [BRIDGE]: true, ...msg }, "*");
   }
 
-  // 1. اعتراض URLSearchParams
   const NativeURLSearchParams = window.URLSearchParams;
   window.URLSearchParams = function(init) {
     if (typeof init === "string" && init.length > 2) {
@@ -22,7 +21,6 @@
     return new NativeURLSearchParams(init);
   };
 
-  // 2. اعتراض المصادر الأخرى
   function hookAccessor(owner, prop, type) {
     try {
       const d = Object.getOwnPropertyDescriptor(owner, prop);
@@ -51,14 +49,12 @@
   try { hookAccessor(Document.prototype, "URL", "document.URL"); } catch {}
   try { hookAccessor(Window.prototype, "name", "window.name"); } catch {}
 
-  // 3. اعتراض المصارف (مع إضافة location.search كدرع واقٍ)
   const EXPLOITABLE =
     /<\s*(script|iframe|svg|img|body|object|embed|math)\b|on\w+\s*=|javascript\s*:|data\s*:\s*text\/html/i;
 
   function reportSink(sink, value, element, extra = {}) {
     if (typeof value !== "string" || value.length < 3) return;
     
-    // التقاط الرابط لتجاوز قيود المتصفح
     let searchData = '';
     try { searchData = location.search || ''; } catch(e) {}
     
@@ -71,7 +67,7 @@
       },
       value: value.slice(0, 2000),
       exploitable: EXPLOITABLE.test(value),
-      extra: { ...extra, search: searchData }, // نرسل الرابط هنا
+      extra: { ...extra, search: searchData },
     });
   }
 
